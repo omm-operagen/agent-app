@@ -27,3 +27,12 @@ What broke, why, and the fix. Raw material for the article.
 - `.mcp.json` points at the production URL and reads the bearer token from `${MCP_TOKEN}`, so the secret never enters git.
 - Cloud sessions read both `.mcp.json` and environment variables only at session start. A running session cannot pick up a newly added server or token; start a new session.
 - A cloud sandbox's network allowlist blocks the production host by default, so the live endpoint could not be curl-tested from the session that wrote this file.
+
+## Step 5b: OAuth for clients that cannot send a header (Cowork, claude.ai)
+- **Broke:** the static bearer token worked in Claude Code but not in Cowork. claude.ai connectors send a fixed `Authorization` header only through a "Request headers" field that is in beta for some organizations; otherwise they speak OAuth or nothing.
+- **Why not Sign in with Vercel:** it works with apps registered by hand in Vercel, with no documented self-registration for arbitrary MCP clients. Supabase Auth's OAuth 2.1 server supports dynamic client registration, which is what Claude uses.
+- **Design:** hybrid auth. `core/auth.ts` accepts the static `MCP_TOKEN` (Claude Code) or a Supabase-issued JWT (Cowork). JWTs are verified against the project's public keys (`jose`): issuer, audience, expiry, ES256/RS256 only. `mcp-handler` does not verify tokens itself.
+- **Signing in is not authorization:** anyone with an account on the Supabase project would pass a plain signature check. Tokens must also belong to the owner (`OWNER_USER_ID` or `OWNER_EMAIL`); with neither set, no OAuth identity is accepted.
+- **Pieces:** `/.well-known/oauth-protected-resource` (names Supabase as the authorization server), `/auth/login`, `/oauth/consent` and `/api/oauth/decision` (where the owner approves a client the first time).
+- **Testing trap:** local tests of the static token returned 401. A real `MCP_TOKEN` had appeared in the shell environment, and Next.js lets shell variables override `.env.local`. Not a code bug.
+- **Not tested:** the full browser flow, which needs a real Supabase project; the sandbox cannot reach Supabase.
