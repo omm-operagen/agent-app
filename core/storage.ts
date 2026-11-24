@@ -51,7 +51,16 @@ export function getStore(): DocStore {
   if (g.__docStore) return g.__docStore;
   const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
-  g.__docStore = url && token ? new RedisStore(new Redis({ url, token })) : new MemoryStore();
+  if (url && token) {
+    g.__docStore = new RedisStore(new Redis({ url, token }));
+  } else if (process.env.VERCEL) {
+    // In-memory state is per-instance on serverless: writes would silently vanish. Fail loudly.
+    throw new Error(
+      "Redis credentials missing (KV_REST_API_URL/KV_REST_API_TOKEN). Enable the Upstash store for this Vercel environment.",
+    );
+  } else {
+    g.__docStore = new MemoryStore();
+  }
   return g.__docStore;
 }
 
