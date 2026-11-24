@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "agent-app": {
+      "type": "http",
+      "url": "https://agent-app-alpha.vercel.app/api/mcp",
+      "headers": {
+        "Authorization": "Bearer ${MCP_TOKEN}"
+      }
+    }
+  }
+}
